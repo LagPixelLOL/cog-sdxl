@@ -82,8 +82,8 @@ class SDXLMultiPipelineSwitchAutoDetect():
 
         if model_name != self.on_cuda_model:
             self.model_pipeline_dict[self.on_cuda_model].to("cpu")
+            pipeline.to("cuda")
             self.on_cuda_model = model_name
-            self.model_pipeline_dict[self.on_cuda_model].to("cuda")
 
         return pipeline
 
