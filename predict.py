@@ -47,9 +47,12 @@ class Predictor(BasePredictor):
         seed: int = Input(description="The seed used when generating, set to -1 for random seed", default=-1),
     ) -> List[Path]:
         pipeline = self.pipelines.get_pipeline(model)
+        generator = None
+        if seed != -1:
+            generator = torch.Generator(device="cuda").manual_seed(seed)
         imgs = pipeline(
             prompt=prompt, negative_prompt=negative_prompt, width=width, height=height, num_inference_steps=steps,
-            guidance_scale=cfg_scale, guidance_rescale=guidance_rescale, num_images_per_prompt=batch_size,
+            guidance_scale=cfg_scale, guidance_rescale=guidance_rescale, num_images_per_prompt=batch_size, generator=generator,
         ).images
 
         image_paths = []
@@ -66,6 +69,8 @@ class SDXLMultiPipelineSwitchAutoDetect():
         self.models_dir_path = models_dir_path
         self.model_pipeline_dict = {model: None for model in model_names}
         self.vae = diffusers.AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.bfloat16)
+        self.vae.enable_slicing()
+        self.vae.enable_tiling()
         self._load_all_models()
         self.on_cuda_model = model_names[0]
         self.model_pipeline_dict[self.on_cuda_model].to("cuda")
@@ -93,7 +98,5 @@ class SDXLMultiPipelineSwitchAutoDetect():
             model_path, vae=self.vae, torch_dtype=torch.bfloat16, variant="fp16", use_safetensors=True, add_watermarker=False,
         )
         pipeline.scheduler = diffusers.UniPCMultistepScheduler.from_config(pipeline.scheduler.config)
-        pipeline.enable_vae_slicing()
-        pipeline.enable_vae_tiling()
         pipeline.enable_xformers_memory_efficient_attention()
         return pipeline
