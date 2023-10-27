@@ -6,6 +6,7 @@
 .git/*
 .github/*
 .gitignore
+tmp/*
 
 # Exclude jupyter
 .ipynb_checkpoints/*
