@@ -95,7 +95,7 @@ class SDXLMultiPipelineSwitchAutoDetect():
     def _load_model(self, model_name):
         model_path = os.path.join(self.models_dir_path, model_name)
         pipeline = StableDiffusionXLPipeline.from_single_file(
-            model_path, vae=self.vae, torch_dtype=torch.bfloat16, variant="fp16", use_safetensors=True, add_watermarker=False,
+            model_path, vae=self.vae, torch_dtype=torch.bfloat16, variant="fp16", add_watermarker=False,
         )
         pipeline.scheduler = diffusers.UniPCMultistepScheduler.from_config(pipeline.scheduler.config)
         pipeline.enable_xformers_memory_efficient_attention()
