@@ -71,9 +71,9 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     def __init__(self, models_dir_path, model_names, vaes_dir_path, vae_names):
         self.models_dir_path = models_dir_path
-        self.model_pipeline_dict = {model_name: None for model_name in model_names}
+        self.model_pipeline_dict = {model_name: None for model_name in model_names} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance
         self.vaes_dir_path = vaes_dir_path
-        self.vae_obj_dict = {vae_name: None for vae_name in vae_names}
+        self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance
         self._load_all_models()
         self._load_all_vaes()
         self.on_cuda_model = model_names[0]
@@ -102,8 +102,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     def _load_all_models(self):
         for model_name in self.model_pipeline_dict.keys():
-            pipeline = self._load_model(model_name)
-            self.model_pipeline_dict[model_name] = pipeline
+            self.model_pipeline_dict[model_name] = self._load_model(model_name)
 
     def _load_model(self, model_name):
         pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=torch.bfloat16, variant="fp16", add_watermarker=False)
@@ -114,8 +113,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     def _load_all_vaes(self):
         for vae_name in self.vae_obj_dict.keys():
-            vae = self._load_vae(vae_name)
-            self.vae_obj_dict[vae_name] = vae
+            self.vae_obj_dict[vae_name] = self._load_vae(vae_name)
 
     def _load_vae(self, vae_name):
         vae = AutoencoderKL.from_pretrained(os.path.join(self.vaes_dir_path, vae_name), torch_dtype=torch.bfloat16)
