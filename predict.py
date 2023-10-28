@@ -5,6 +5,7 @@ import glob
 import torch
 import diffusers
 from diffusers import StableDiffusionXLPipeline, AutoencoderKL
+from schedulers import SDXLCompatibleSchedulers
 
 def find_models(models_dir):
     return [os.path.basename(file) for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
@@ -27,6 +28,7 @@ MODEL_NAMES = find_models(MODELS_DIR_PATH)
 assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
 VAE_NAMES = find_vaes(VAES_DIR_PATH)
 assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
+SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
 # Cog will only run this class in a single thread
 class Predictor(BasePredictor):
@@ -42,6 +44,7 @@ class Predictor(BasePredictor):
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
         prompt: str = Input(description="The prompt", default="catgirl, cat ears, white hair, golden eyes, bob cut, pov, face closeup, smile"),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="lowres, low quality, worse quality, monochrome, blurry, headphone, big breasts"),
+        scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
         steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=30),
         guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=1),
@@ -50,7 +53,7 @@ class Predictor(BasePredictor):
         batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
         seed: int = Input(description="The seed used when generating, set to -1 for random seed", default=-1),
     ) -> List[Path]:
-        pipeline = self.pipelines.get_pipeline(model, vae)
+        pipeline = self.pipelines.get_pipeline(model, vae, scheduler)
         generator = None
         if seed != -1:
             generator = torch.Generator(device="cuda").manual_seed(seed)
@@ -81,7 +84,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
         on_cuda_pipeline.to("cuda")
         on_cuda_pipeline.vae = self.vae_obj_dict[vae_names[0]]
 
-    def get_pipeline(self, model_name, vae_name):
+    def get_pipeline(self, model_name, vae_name, scheduler_name):
         pipeline = self.model_pipeline_dict.get(model_name)
         vae = self.vae_obj_dict.get(vae_name)
         # __init__ function guarantees models and VAEs to be loaded.
@@ -98,6 +101,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
             self.on_cuda_model = model_name
 
         pipeline.vae = vae
+        pipeline.scheduler = SDXLCompatibleSchedulers.create_instance(scheduler_name, pipeline.scheduler.config)
         return pipeline
 
     # Load all models to CPU
@@ -109,7 +113,6 @@ class SDXLMultiPipelineSwitchAutoDetect:
     def _load_model(self, model_name):
         pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=torch.bfloat16, variant="fp16", add_watermarker=False)
         pipeline.vae = None
-        pipeline.scheduler = diffusers.UniPCMultistepScheduler.from_config(pipeline.scheduler.config)
         pipeline.enable_xformers_memory_efficient_attention()
         return pipeline
 
