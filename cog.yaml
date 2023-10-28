@@ -26,7 +26,8 @@ build:
     - accelerate
     - transformers
     - diffusers
-
+    - scipy
+    
   # commands run after the environment is setup
   run:
     - "python3 -c 'from huggingface_hub import snapshot_download;snapshot_download(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"])'"
