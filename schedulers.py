@@ -45,10 +45,10 @@ class SDXLCompatibleSchedulers(Enum):
         self.init_args = init_args
 
     @classmethod
-    def create_instance(cls, name, scheduler_config):
+    def create_instance(cls, name):
         for scheduler in cls:
             if scheduler.string_name == name:
-                return scheduler.scheduler_class.from_config(scheduler_config, **scheduler.init_args)
+                return scheduler.scheduler_class.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **scheduler.init_args)
         raise ValueError(f"Scheduler with name \"{name}\" does not exist in SDXLCompatibleSchedulers.")
 
     @classmethod

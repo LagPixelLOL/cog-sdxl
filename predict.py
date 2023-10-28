@@ -28,6 +28,8 @@ MODEL_NAMES = find_models(MODELS_DIR_PATH)
 assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
 VAE_NAMES = find_vaes(VAES_DIR_PATH)
 assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
+MODEL_NAMES.sort()
+VAE_NAMES.sort()
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
 # Cog will only run this class in a single thread
@@ -77,8 +79,10 @@ class SDXLMultiPipelineSwitchAutoDetect:
         self.model_pipeline_dict = {model_name: None for model_name in model_names} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance
         self.vaes_dir_path = vaes_dir_path
         self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance
+
         self._load_all_models()
         self._load_all_vaes()
+
         self.on_cuda_model = model_names[0]
         on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
         on_cuda_pipeline.to("cuda")
@@ -94,14 +98,14 @@ class SDXLMultiPipelineSwitchAutoDetect:
             raise ValueError(f"VAE '{vae_name}' not found.")
 
         if model_name != self.on_cuda_model:
-            on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
-            on_cuda_pipeline.vae = None
-            on_cuda_pipeline.to("cpu")
+            prev_on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
+            prev_on_cuda_pipeline.vae = None
+            prev_on_cuda_pipeline.to("cpu")
             pipeline.to("cuda")
             self.on_cuda_model = model_name
 
         pipeline.vae = vae
-        pipeline.scheduler = SDXLCompatibleSchedulers.create_instance(scheduler_name, pipeline.scheduler.config)
+        pipeline.scheduler = SDXLCompatibleSchedulers.create_instance(scheduler_name)
         return pipeline
 
     # Load all models to CPU
