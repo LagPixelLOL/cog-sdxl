@@ -100,10 +100,12 @@ class SDXLMultiPipelineSwitchAutoDetect:
         pipeline.vae = vae
         return pipeline
 
+    # Load all models to CPU
     def _load_all_models(self):
         for model_name in self.model_pipeline_dict.keys():
             self.model_pipeline_dict[model_name] = self._load_model(model_name)
 
+    # Load a model to CPU
     def _load_model(self, model_name):
         pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=torch.bfloat16, variant="fp16", add_watermarker=False)
         pipeline.vae = None
@@ -111,10 +113,12 @@ class SDXLMultiPipelineSwitchAutoDetect:
         pipeline.enable_xformers_memory_efficient_attention()
         return pipeline
 
+    # Load all VAEs to GPU(CUDA)
     def _load_all_vaes(self):
         for vae_name in self.vae_obj_dict.keys():
             self.vae_obj_dict[vae_name] = self._load_vae(vae_name)
 
+    # Load a VAE to GPU(CUDA)
     def _load_vae(self, vae_name):
         vae = AutoencoderKL.from_pretrained(os.path.join(self.vaes_dir_path, vae_name), torch_dtype=torch.bfloat16)
         vae.enable_slicing()
