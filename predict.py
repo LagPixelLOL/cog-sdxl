@@ -1,11 +1,12 @@
 # predict.py
 
+# Internals
 from cog import BasePredictor, Input, Path
-from diffusers import StableDiffusionXLPipeline, DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, UniPCMultistepScheduler
 from typing import List
 import os
 import torch
 
+# Externals
 from modules.sdxl_pipeline import SDXLMultiPipelineSwitchAutoDetect
 from modules.helpers import MODEL_NAMES, VAE_NAMES
 from constants.directories import MODELS_DIR_PATH, VAE_DIR_PATH

@@ -1,7 +1,8 @@
 # modules/sdxl_pipeline.py
+import os
 import diffusers
 import torch
-from diffusers import StableDiffusionXLPipeline
+from diffusers import StableDiffusionXLPipeline, DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, UniPCMultistepScheduler
 from constants.schedulers import SCHEDULERS
 
 class SDXLMultiPipelineSwitchAutoDetect():
