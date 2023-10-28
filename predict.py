@@ -7,8 +7,7 @@ import diffusers
 from diffusers import StableDiffusionXLPipeline, AutoencoderKL
 
 def find_models(models_dir):
-    model_names = [os.path.basename(file) for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
-    return model_names
+    return [os.path.basename(file) for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
 
 def find_vaes(vaes_dir):
     vae_names = []
