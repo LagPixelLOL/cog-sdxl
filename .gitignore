@@ -1,6 +1,7 @@
 .cog/
-loras/
 models/
+loras/
+vaes/
 tmp/
 
 # Byte-compiled / optimized / DLL files
