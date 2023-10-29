@@ -2,6 +2,7 @@
 models/
 loras/
 vaes/
+textual_inversions/
 tmp/
 
 # Byte-compiled / optimized / DLL files
