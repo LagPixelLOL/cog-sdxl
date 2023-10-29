@@ -1,5 +1,6 @@
 from enum import Enum
 from diffusers import (
+    DPMSolverMultistepScheduler,
     UniPCMultistepScheduler,
     HeunDiscreteScheduler,
     DDIMScheduler,
@@ -13,10 +14,10 @@ from diffusers import (
     PNDMScheduler,
     KDPM2DiscreteScheduler,
     DEISMultistepScheduler,
-    DPMSolverMultistepScheduler,
 )
 
 class SDXLCompatibleSchedulers(Enum):
+    DPMPlusPlus2MSDEKarras = ("DPM++ 2M SDE Karras", DPMSolverMultistepScheduler, {"use_karras_sigmas": True, "algorithm_type": "sde-dpmsolver++"})
     UniPC = ("UniPC", UniPCMultistepScheduler, {})
     Heun = ("Heun", HeunDiscreteScheduler, {})
     DDIM = ("DDIM", DDIMScheduler, {})
@@ -37,7 +38,6 @@ class SDXLCompatibleSchedulers(Enum):
     DPMPlusPlus2M = ("DPM++ 2M", DPMSolverMultistepScheduler, {})
     DPMPlusPlus2MKarras = ("DPM++ 2M Karras", DPMSolverMultistepScheduler, {"use_karras_sigmas": True})
     DPMPlusPlus2MSDE = ("DPM++ 2M SDE", DPMSolverMultistepScheduler, {"algorithm_type": "sde-dpmsolver++"})
-    DPMPlusPlus2MSDEKarras = ("DPM++ 2M SDE Karras", DPMSolverMultistepScheduler, {"use_karras_sigmas": True, "algorithm_type": "sde-dpmsolver++"})
 
     def __init__(self, string_name, scheduler_class, init_args):
         self.string_name = string_name

@@ -52,8 +52,8 @@ class Predictor(BasePredictor):
         self,
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
-        prompt: str = Input(description="The prompt", default="catgirl, cat ears, white hair, golden eyes, bob cut, pov, face closeup, smile"),
-        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="lowres, low quality, worse quality, monochrome, blurry, headphone, big breasts"),
+        prompt: str = Input(description="The prompt", default="1girl, catgirl, cat ears, white hair, golden eyes, bob cut, scenery, raining, night"),
+        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="unaestheticXL_Sky3.1, big breasts"),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
         steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=30),
@@ -146,8 +146,8 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
 def apply_textual_inversions_to_sdxl_pipeline(sdxl_pipeline, clip_l_list, clip_g_list, activation_token_list):
     if clip_l_list:
-        sdxl_pipeline.load_textual_inversion(clip_l_list, token=activation_token_list, text_encoder=sdxl_pipeline.text_encoder, tokenizer=sdxl_pipeline.tokenizer)
-        sdxl_pipeline.load_textual_inversion(clip_g_list, token=activation_token_list, text_encoder=sdxl_pipeline.text_encoder_2, tokenizer=sdxl_pipeline.tokenizer_2)
+        sdxl_pipeline.load_textual_inversion(clip_l_list, activation_token_list, sdxl_pipeline.tokenizer, sdxl_pipeline.text_encoder)
+        sdxl_pipeline.load_textual_inversion(clip_g_list, activation_token_list, sdxl_pipeline.tokenizer_2, sdxl_pipeline.text_encoder_2)
 
 def get_textual_inversions(textual_inversion_paths):
     clip_l_list = []
