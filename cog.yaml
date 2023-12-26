@@ -15,13 +15,10 @@ build:
 
   # a list of packages in the format <package-name>==<version>
   python_packages:
-    - torch==2.1.0+cu118
     - --extra-index-url https://download.pytorch.org/whl/cu118
-    - torchvision==0.16.0+cu118
-    - --extra-index-url https://download.pytorch.org/whl/cu118
-    - torchaudio==2.1.0+cu118
-    - --extra-index-url https://download.pytorch.org/whl/cu118
-    - xformers
+    - torch==2.1.2+cu118
+    - torchvision==0.16.2+cu118
+    - torchaudio==2.1.2+cu118
     - omegaconf
     - accelerate
     - transformers
@@ -31,6 +28,7 @@ build:
 
   # commands run after the environment is setup
   run:
+    - "pip3 install -U xformers --index-url https://download.pytorch.org/whl/cu118"
     - "python3 -c 'from huggingface_hub import hf_hub_download as d;d(repo_id=\"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"scheduler_config.json\", subfolder=\"scheduler\")'"
     - "pip3 cache purge && apt-get clean"
     - "echo env ready."

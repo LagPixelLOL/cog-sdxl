@@ -145,7 +145,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
         return vae
 
 def apply_textual_inversions_to_sdxl_pipeline(sdxl_pipeline, clip_l_list, clip_g_list, activation_token_list):
-    if clip_l_list:
+    if clip_l_list and clip_g_list and activation_token_list:
         sdxl_pipeline.load_textual_inversion(clip_l_list, activation_token_list, sdxl_pipeline.tokenizer, sdxl_pipeline.text_encoder)
         sdxl_pipeline.load_textual_inversion(clip_g_list, activation_token_list, sdxl_pipeline.tokenizer_2, sdxl_pipeline.text_encoder_2)
 
