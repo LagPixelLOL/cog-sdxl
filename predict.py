@@ -52,8 +52,8 @@ class Predictor(BasePredictor):
         self,
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
-        prompt: str = Input(description="The prompt", default="1girl, catgirl, cat ears, white hair, golden eyes, bob cut, scenery, raining, night"),
-        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="unaestheticXL_Sky3.1, big breasts"),
+        prompt: str = Input(description="The prompt", default="1girl, cat girl, cat ears, cat tail, yellow eyes, white hair, bob cut, from side, scenery, sunset"),
+        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, unaestheticXL_Sky3.1, big breasts"),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
         steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=30),
@@ -63,6 +63,8 @@ class Predictor(BasePredictor):
         batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
         seed: int = Input(description="The seed used when generating, set to -1 for random seed", default=-1),
     ) -> List[Path]:
+        if prompt == "__ignore__":
+            return []
         pipeline = self.pipelines.get_pipeline(model, vae, scheduler)
         generator = None
         if seed != -1:
