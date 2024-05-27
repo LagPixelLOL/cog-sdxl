@@ -40,6 +40,9 @@ VAE_NAMES.sort()
 TEXTUAL_INVERSION_PATHS = find_textual_inversions("textual_inversions")
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
+POSITIVE_PREPROMPT = "score_9, score_8_up, score_7_up, "
+NEGATIVE_PREPROMPT = "score_4, score_3, score_2, score_1, worst quality, bad hands, bad feet, "
+
 # Cog will only run this class in a single thread.
 class Predictor(BasePredictor):
 
@@ -53,7 +56,8 @@ class Predictor(BasePredictor):
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
         prompt: str = Input(description="The prompt", default="1girl, cat girl, cat ears, cat tail, yellow eyes, white hair, bob cut, from side, scenery, sunset"),
-        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, unaestheticXL_Sky3.1, big breasts"),
+        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="unaestheticXL_Sky3.1, animal, cat, dog, big breasts"),
+        prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\").", default=True),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
         steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=30),
@@ -69,6 +73,9 @@ class Predictor(BasePredictor):
         generator = None
         if seed != -1:
             generator = torch.Generator(device="cuda").manual_seed(seed)
+        if prepend_preprompt:
+            prompt = POSITIVE_PREPROMPT + prompt
+            negative_prompt = NEGATIVE_PREPROMPT + negative_prompt
         imgs = pipeline(
             prompt=prompt, negative_prompt=negative_prompt, width=width, height=height, num_inference_steps=steps,
             guidance_scale=cfg_scale, guidance_rescale=guidance_rescale, num_images_per_prompt=batch_size, generator=generator,
