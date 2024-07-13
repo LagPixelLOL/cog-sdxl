@@ -2,11 +2,17 @@ from cog import BasePredictor, Input, Path
 from typing import List
 import os
 import glob
+import requests
+import urllib
+import cgi
+import subprocess
 import torch
 import safetensors
 import diffusers
 from diffusers import StableDiffusionXLPipeline, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers
+
+REQUESTS_GLOBAL_SESSION = requests.Session()
 
 # Returns the base filenames of the models.
 def find_models(models_dir):
@@ -56,6 +62,7 @@ class Predictor(BasePredictor):
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
         prompt: str = Input(description="The prompt", default="1girl, cat girl, cat ears, cat tail, yellow eyes, white hair, bob cut, from side, scenery, sunset"),
+        lora_url: str = Input(description="The URL to the LoRA (Will download the weights, might take a while if the LoRA is huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)", default=""),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="unaestheticXL_Sky3.1, animal, cat, dog, big breasts"),
         prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\").", default=True),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
@@ -70,6 +77,9 @@ class Predictor(BasePredictor):
         if prompt == "__ignore__":
             return []
         pipeline = self.pipelines.get_pipeline(model, vae, scheduler)
+        pipeline.unload_lora_weights()
+        if lora_url:
+            process_lora(lora_url, pipeline)
         generator = None
         if seed != -1:
             generator = torch.Generator(device="cuda").manual_seed(seed)
@@ -88,6 +98,54 @@ class Predictor(BasePredictor):
             image_paths.append(Path(img_file_path))
 
         return image_paths
+
+def check_url(url):
+    with REQUESTS_GLOBAL_SESSION.get(url, allow_redirects=True, timeout=5, stream=True) as response:
+        if response.status_code >= 200 and response.status_code < 300:
+            content_disposition = response.headers.get("Content-Disposition")
+            if content_disposition:
+                value, params = cgi.parse_header(content_disposition)
+                if "filename*" in params:
+                    encoding, _, filename = params["filename*"].split("'", 2)
+                    return urllib.parse.unquote(filename, encoding=encoding)
+                elif "filename" in params:
+                    return urllib.parse.unquote(params["filename"])
+            content_type = response.headers.get("Content-Type")
+            if content_type == "binary/octet-stream":
+                parsed_url = urllib.parse.urlparse(url)
+                filename = parsed_url.path.split("/")[-1]
+                if filename:
+                    return urllib.parse.unquote(filename)
+        else:
+            raise RuntimeError(f"URL responded with status code: {response.status_code}")
+    raise RuntimeError("URL not downloadable.")
+
+LORAS_DIR_PATH = "loras"
+URL_LORA_FILENAME_DICT = {}
+
+def process_lora(url, pipeline):
+    url = url.strip()
+    if url not in URL_LORA_FILENAME_DICT:
+        filename = check_url(url)
+        _, ext = os.path.splitext(filename)
+        if ext not in [".safetensors", ".bin"]:
+            raise RuntimeError("URL file extension not supported:", ext)
+        lora_path = os.path.join(LORAS_DIR_PATH, filename)
+        if filename not in URL_LORA_FILENAME_DICT.values():
+            return_code = subprocess.run(["pget", "-m", "10M", url, lora_path]).returncode
+            if return_code != 0:
+                raise RuntimeError(f"Failed to download \"{filename}\", return code:", return_code)
+        URL_LORA_FILENAME_DICT[url] = filename
+    else:
+        filename = URL_LORA_FILENAME_DICT[url]
+        _, ext = os.path.splitext(filename)
+        lora_path = os.path.join(LORAS_DIR_PATH, filename)
+
+    if ext == ".safetensors":
+        state_dict = safetensors.torch.load_file(lora_path)
+    else:
+        state_dict = torch.load(lora_path)
+    pipeline.load_lora_weights(state_dict, filename.replace(".", "_"))
 
 class SDXLMultiPipelineSwitchAutoDetect:
 
@@ -111,9 +169,9 @@ class SDXLMultiPipelineSwitchAutoDetect:
         vae = self.vae_obj_dict.get(vae_name)
         # __init__ function guarantees models and VAEs to be loaded.
         if pipeline is None:
-            raise ValueError(f"Model '{model_name}' not found.")
+            raise ValueError(f"Model \"{model_name}\" not found.")
         if vae is None:
-            raise ValueError(f"VAE '{vae_name}' not found.")
+            raise ValueError(f"VAE \"{vae_name}\" not found.")
 
         if model_name != self.on_cuda_model:
             prev_on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
