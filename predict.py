@@ -192,7 +192,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     # Load a model to CPU.
     def _load_model(self, model_name, clip_l_list, clip_g_list, activation_token_list):
-        pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=torch.bfloat16, variant="fp16", add_watermarker=False)
+        pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=torch.bfloat16, add_watermarker=False)
         apply_textual_inversions_to_sdxl_pipeline(pipeline, clip_l_list, clip_g_list, activation_token_list)
         pipeline.vae = None
         pipeline.enable_xformers_memory_efficient_attention()
