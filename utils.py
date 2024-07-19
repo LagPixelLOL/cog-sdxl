@@ -1,17 +1,11 @@
+from constants import * # constants.py
 import os
-import glob
-import requests
 import urllib
 import cgi
 import subprocess
 import torch
 import safetensors
 from PIL import Image
-
-REQUESTS_UTILS_SESSION = requests.Session()
-
-LORAS_DIR_PATH = "loras"
-URL_LORA_FILENAME_DICT = {}
 
 def scale_and_crop(image_path, width, height):
     img = Image.open(image_path).convert('RGB')
@@ -39,6 +33,8 @@ def scale_and_crop(image_path, width, height):
 
     return img_cropped
 
+URL_LORA_FILENAME_DICT = {}
+
 def process_lora(url, pipeline):
     url = url.strip()
     if url not in URL_LORA_FILENAME_DICT:
@@ -64,7 +60,7 @@ def process_lora(url, pipeline):
     pipeline.load_lora_weights(state_dict, filename.replace(".", "_"))
 
 def check_url(url):
-    with REQUESTS_UTILS_SESSION.get(url, allow_redirects=True, timeout=5, stream=True) as response:
+    with REQUESTS_GLOBAL_SESSION.get(url, allow_redirects=True, timeout=5, stream=True) as response:
         if response.status_code >= 200 and response.status_code < 300:
             content_disposition = response.headers.get("Content-Disposition")
             if content_disposition:
@@ -83,27 +79,6 @@ def check_url(url):
         else:
             raise RuntimeError(f"URL responded with status code: {response.status_code}")
     raise RuntimeError("URL not downloadable.")
-
-# Returns the base filenames of the models.
-def find_models(models_dir):
-    return [os.path.basename(file) for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
-
-# Returns the folder names of the VAEs.
-def find_vaes(vaes_dir):
-    vae_names = []
-    for folder in os.listdir(vaes_dir):
-        folder_path = os.path.join(vaes_dir, folder)
-        if os.path.isdir(folder_path):
-            safetensors_file = os.path.join(folder_path, 'diffusion_pytorch_model.safetensors')
-            bin_file = os.path.join(folder_path, 'diffusion_pytorch_model.bin')
-            config_file = os.path.join(folder_path, 'config.json')
-            if (os.path.isfile(safetensors_file) or os.path.isfile(bin_file)) and os.path.isfile(config_file):
-                vae_names.append(folder)
-    return vae_names
-
-# Returns the relative paths of the textual inversions.
-def find_textual_inversions(textual_inversions_dir):
-    return [file for file in glob.glob(f"{textual_inversions_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{textual_inversions_dir}/**/*.bin", recursive=True)]
 
 def apply_textual_inversions_to_sdxl_pipeline(sdxl_pipeline, clip_l_list, clip_g_list, activation_token_list):
     if clip_l_list and clip_g_list and activation_token_list:

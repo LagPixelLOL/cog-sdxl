@@ -1,25 +1,16 @@
+from constants import * # constants.py
+assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
+assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
+
 from cog import BasePredictor, Input, Path
 import utils # utils.py
 import os
 import random
 import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL
-from schedulers import SDXLCompatibleSchedulers
+from schedulers import SDXLCompatibleSchedulers # schedulers.py
 
-TORCH_DTYPE = torch.bfloat16
-MODELS_DIR_PATH = "models"
-VAES_DIR_PATH = "vaes"
-MODEL_NAMES = utils.find_models(MODELS_DIR_PATH)
-assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
-VAE_NAMES = utils.find_vaes(VAES_DIR_PATH)
-assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
-MODEL_NAMES.sort()
-VAE_NAMES.sort()
-TEXTUAL_INVERSION_PATHS = utils.find_textual_inversions("textual_inversions")
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
-
-POSITIVE_PREPROMPT = "score_9, score_8_up, score_7_up, "
-NEGATIVE_PREPROMPT = "score_4, score_3, score_2, score_1, worst quality, bad hands, bad feet, "
 
 # Cog will only run this class in a single thread.
 class Predictor(BasePredictor):
@@ -28,7 +19,6 @@ class Predictor(BasePredictor):
         self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS_DIR_PATH, MODEL_NAMES, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS)
         os.makedirs("tmp", exist_ok=True)
 
-    @torch.no_grad
     def predict(
         self,
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
