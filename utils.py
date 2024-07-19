@@ -43,7 +43,7 @@ def process_lora(url, pipeline):
         if ext not in [".safetensors", ".bin"]:
             raise RuntimeError("URL file extension not supported:", ext)
         lora_path = os.path.join(LORAS_DIR_PATH, filename)
-        if filename not in URL_LORA_FILENAME_DICT.values():
+        if not os.path.exists(lora_path):
             return_code = subprocess.run(["pget", "-m", "10M", url, lora_path]).returncode
             if return_code != 0:
                 raise RuntimeError(f"Failed to download \"{filename}\", return code:", return_code)
