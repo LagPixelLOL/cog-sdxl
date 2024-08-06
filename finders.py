@@ -1,9 +1,9 @@
 import os
 import glob
 
-# Returns the base filenames of the models.
+# Returns the relative paths of the models.
 def find_models(models_dir):
-    return [os.path.basename(file) for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
+    return [file for file in glob.glob(f"{models_dir}/**/*.safetensors", recursive=True) + glob.glob(f"{models_dir}/**/*.ckpt", recursive=True)]
 
 # Returns the folder names of the VAEs.
 def find_vaes(vaes_dir):

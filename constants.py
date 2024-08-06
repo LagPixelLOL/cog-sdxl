@@ -1,11 +1,12 @@
 import finders # finders.py
+import os
 import requests
 import torch
 
 TORCH_DTYPE = torch.bfloat16
 
 MODELS_DIR_PATH = "models"
-MODEL_NAMES = finders.find_models(MODELS_DIR_PATH)
+MODEL_NAMES = [os.path.basename(file) for file in finders.find_models(MODELS_DIR_PATH)]
 MODEL_NAMES.sort()
 
 VAES_DIR_PATH = "vaes"

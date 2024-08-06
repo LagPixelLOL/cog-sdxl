@@ -3,6 +3,7 @@ assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH
 assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
 
 from cog import BasePredictor, Input, Path
+import finders # finders.py
 import utils # utils.py
 import os
 import random
@@ -16,6 +17,8 @@ SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 class Predictor(BasePredictor):
 
     def setup(self):
+        for file in finders.find_models(MODELS_DIR_PATH):
+            os.rename(file, os.path.join(MODELS_DIR_PATH, os.path.basename(file)))
         self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS_DIR_PATH, MODEL_NAMES, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS)
         os.makedirs("tmp", exist_ok=True)
 
