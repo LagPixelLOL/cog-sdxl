@@ -11,6 +11,7 @@ def parse_args():
     model_name_required = len(MODEL_NAMES) > 1
     parser = argparse.ArgumentParser(description="Extract VAE from Stable Diffusion XL model")
     parser.add_argument(
+        "-m",
         "--model-name",
         type=str,
         required=model_name_required,
@@ -19,6 +20,7 @@ def parse_args():
         help="Name of the model to extract VAE from"
     )
     parser.add_argument(
+        "-v",
         "--vae-name",
         type=str,
         required=vae_name_required,

@@ -24,26 +24,24 @@ class Predictor(BasePredictor):
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
         vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
         prompt: str = Input(description="The prompt", default="1girl"),
-        image: Path = Input(description="The image for image to image generation or as the base for inpaint generation (Will be scaled then cropped to the set width and height)", default=None),
-        mask: Path = Input(description="The mask for inpaint generation, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
-        lora_url: str = Input(description="The URL to the LoRA (Will download the weights, might take a while if the LoRA is huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)", default=""),
+        image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
+        mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
+        lora_url: str = Input(description="The URL to the LoRA (Will download the weights, might take a while if the LoRA is huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)", default=None),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, big breasts"),
         prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\").", default=True),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
         steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
-        cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=30),
-        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=1),
-        width: int = Input(description="The width of the image", default=1184, ge=1, le=2048),
-        height: int = Input(description="The height of the image", default=864, ge=1, le=2048),
-        strength: float = Input(description="How much noise to add (For image to image only, larger value indicates more noise added to the input image)", default=0.7, ge=0.03, le=1),
-        blur_factor: float = Input(description="The factor to blur the inpainting mask for smoother transition between masked and unmasked, must be >= 0", default=5),
+        cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=50),
+        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=5),
+        width: int = Input(description="The width of the image", default=1184, ge=1, le=4096),
+        height: int = Input(description="The height of the image", default=864, ge=1, le=4096),
+        strength: float = Input(description="How much noise to add (For image to image and inpainting only, larger value indicates more noise added to the input image)", default=0.7, ge=0, le=1),
+        blur_factor: float = Input(description="The factor to blur the inpainting mask for smoother transition between masked and unmasked", default=5, ge=0),
         batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
         seed: int = Input(description="The seed used when generating, set to -1 for random seed", default=-1),
     ) -> list[Path]:
         if prompt == "__ignore__":
             return []
-        if blur_factor < 0:
-            raise ValueError(f"blur_factor must be >= 0, your input \"{blur_factor}\" isn't valid.")
         if prepend_preprompt:
             prompt = POSITIVE_PREPROMPT + prompt
             negative_prompt = NEGATIVE_PREPROMPT + negative_prompt
@@ -59,14 +57,14 @@ class Predictor(BasePredictor):
             gen_kwargs["image"] = utils.scale_and_crop(image, width, height)
             gen_kwargs["strength"] = strength
             if mask:
-                # inpaint
+                # inpainting
                 mask_img = utils.scale_and_crop(mask, width, height)
                 pipeline = StableDiffusionXLInpaintPipeline.from_pipe(pipeline)
                 mask_img = pipeline.mask_processor.blur(mask_img, blur_factor)
                 gen_kwargs["mask_image"] = mask_img
                 gen_kwargs["width"] = width
                 gen_kwargs["height"] = height
-                print("Using inpaint mode.")
+                print("Using inpainting mode.")
             else:
                 # img2img
                 pipeline = StableDiffusionXLImg2ImgPipeline.from_pipe(pipeline)
