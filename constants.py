@@ -6,8 +6,7 @@ import torch
 TORCH_DTYPE = torch.bfloat16
 
 MODELS_DIR_PATH = "models"
-MODEL_NAMES = [os.path.basename(file) for file in finders.find_models(MODELS_DIR_PATH)]
-MODEL_NAMES.sort()
+MODELS = finders.find_models(MODELS_DIR_PATH)
 
 VAES_DIR_PATH = "vaes"
 VAE_NAMES = finders.find_vaes(VAES_DIR_PATH)

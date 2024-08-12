@@ -1,6 +1,5 @@
 from constants import * # constants.py
-assert len(MODEL_NAMES) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
-assert len(VAE_NAMES) > 0, f"You don't have any VAE under \"{VAES_DIR_PATH}\", please put at least 1 VAE in there, you can run \"python3 -c 'from huggingface_hub import snapshot_download as d;d(repo_id=\"madebyollin/sdxl-vae-fp16-fix\", allow_patterns=[\"config.json\", \"diffusion_pytorch_model.safetensors\"], local_dir=\"./vaes/sdxl-vae-fp16-fix\", local_dir_use_symlinks=False)'\" to download a fp16 fixed default SDXL VAE if you don't know what to use."
+assert len(MODELS) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there."
 
 from cog import BasePredictor, Input, Path
 import finders # finders.py
@@ -11,21 +10,21 @@ import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
 
+MODEL_NAMES = list(MODELS)
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
 # Cog will only run this class in a single thread.
 class Predictor(BasePredictor):
 
     def setup(self):
-        for file in finders.find_models(MODELS_DIR_PATH):
-            os.rename(file, os.path.join(MODELS_DIR_PATH, os.path.basename(file)))
-        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS_DIR_PATH, MODEL_NAMES, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS)
+        os.environ.update({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
+        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS)
         os.makedirs("tmp", exist_ok=True)
 
     def predict(
         self,
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
-        vae: str = Input(description="The VAE to use", default=VAE_NAMES[0], choices=VAE_NAMES),
+        vae: str = Input(description="The VAE to use", default=DEFAULT_VAE_NAME, choices=[DEFAULT_VAE_NAME] + VAE_NAMES + MODEL_NAMES),
         prompt: str = Input(description="The prompt", default="1girl"),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
         mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
@@ -95,15 +94,15 @@ class Predictor(BasePredictor):
 
 class SDXLMultiPipelineSwitchAutoDetect:
 
-    def __init__(self, models_dir_path, model_names, vaes_dir_path, vae_names, textual_inversion_paths):
-        self.models_dir_path = models_dir_path
-        self.model_pipeline_dict = {model_name: None for model_name in model_names} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance
+    def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths):
+        self.model_name_obj_dict = model_name_obj_dict
+        self.model_pipeline_dict = {} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance.
         self.vaes_dir_path = vaes_dir_path
-        self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance
+        self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance.
         self.textual_inversion_paths = textual_inversion_paths
 
+        self._load_all_vaes() # Must load VAEs before models.
         self._load_all_models()
-        self._load_all_vaes()
 
         self.on_cuda_model = model_names[0]
         on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
@@ -111,11 +110,13 @@ class SDXLMultiPipelineSwitchAutoDetect:
         on_cuda_pipeline.vae = self.vae_obj_dict[vae_names[0]]
 
     def get_pipeline(self, model_name, vae_name, scheduler_name):
+        # __init__ function guarantees all models and VAEs to be loaded.
         pipeline = self.model_pipeline_dict.get(model_name)
-        vae = self.vae_obj_dict.get(vae_name)
-        # __init__ function guarantees models and VAEs to be loaded.
         if pipeline is None:
             raise ValueError(f"Model \"{model_name}\" not found.")
+
+        vae_name = model_name if vae_name == DEFAULT_VAE_NAME else vae_name
+        vae = self.vae_obj_dict.get(vae_name)
         if vae is None:
             raise ValueError(f"VAE \"{vae_name}\" not found.")
 
@@ -130,22 +131,9 @@ class SDXLMultiPipelineSwitchAutoDetect:
         pipeline.scheduler = SDXLCompatibleSchedulers.create_instance(scheduler_name)
         return pipeline
 
-    # Load all models to CPU.
-    def _load_all_models(self):
-        clip_l_list, clip_g_list, activation_token_list = utils.get_textual_inversions(self.textual_inversion_paths)
-        for model_name in self.model_pipeline_dict.keys():
-            self.model_pipeline_dict[model_name] = self._load_model(model_name, clip_l_list, clip_g_list, activation_token_list)
-
-    # Load a model to CPU.
-    def _load_model(self, model_name, clip_l_list, clip_g_list, activation_token_list):
-        pipeline = StableDiffusionXLPipeline.from_single_file(os.path.join(self.models_dir_path, model_name), torch_dtype=TORCH_DTYPE, add_watermarker=False)
-        utils.apply_textual_inversions_to_sdxl_pipeline(pipeline, clip_l_list, clip_g_list, activation_token_list)
-        pipeline.vae = None
-        return pipeline
-
     # Load all VAEs to GPU(CUDA).
     def _load_all_vaes(self):
-        for vae_name in self.vae_obj_dict.keys():
+        for vae_name in self.vae_obj_dict:
             self.vae_obj_dict[vae_name] = self._load_vae(vae_name)
 
     # Load a VAE to GPU(CUDA).
@@ -155,3 +143,25 @@ class SDXLMultiPipelineSwitchAutoDetect:
         vae.enable_tiling()
         vae.to("cuda")
         return vae
+
+    # Load all models to CPU.
+    def _load_all_models(self):
+        clip_l_list, clip_g_list, activation_token_list = utils.get_textual_inversions(self.textual_inversion_paths)
+        for model_name, model_for_loading in self.model_name_obj_dict.items():
+            self.model_pipeline_dict[model_name] = self._load_model(model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list)
+
+    # Load a model to CPU.
+    def _load_model(self, model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list):
+        model_loading_kwargs = {"torch_dtype": TORCH_DTYPE, "add_watermarker": False}
+        if model_for_loading.is_single_file:
+            pipeline = StableDiffusionXLPipeline.from_single_file(model_for_loading.model_path, **model_loading_kwargs)
+        else:
+            pipeline = StableDiffusionXLPipeline.from_pretrained(model_for_loading.model_path, **model_loading_kwargs)
+        utils.apply_textual_inversions_to_sdxl_pipeline(pipeline, clip_l_list, clip_g_list, activation_token_list)
+        vae = pipeline.vae
+        pipeline.vae = None
+        vae.enable_slicing()
+        vae.enable_tiling()
+        vae.to("cuda")
+        self.vae_obj_dict[model_name] = vae
+        return pipeline
