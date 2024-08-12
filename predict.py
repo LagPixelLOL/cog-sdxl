@@ -5,6 +5,7 @@ from cog import BasePredictor, Input, Path
 import finders # finders.py
 import utils # utils.py
 import os
+import itertools
 import random
 import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
@@ -18,7 +19,7 @@ class Predictor(BasePredictor):
 
     def setup(self):
         os.environ.update({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS)
+        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE)
         os.makedirs("tmp", exist_ok=True)
 
     def predict(
@@ -51,63 +52,62 @@ class Predictor(BasePredictor):
             "prompt": prompt, "negative_prompt": negative_prompt, "num_inference_steps": steps,
             "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale, "num_images_per_prompt": batch_size,
         }
-        pipeline = self.pipelines.get_pipeline(model, vae, scheduler)
-        pipeline.unload_lora_weights()
-        if lora_url:
-            utils.process_lora(lora_url, pipeline)
-        if image:
-            gen_kwargs["image"] = utils.scale_and_crop(image, width, height)
-            gen_kwargs["strength"] = strength
-            if mask:
-                # inpainting
-                mask_img = utils.scale_and_crop(mask, width, height)
-                pipeline = StableDiffusionXLInpaintPipeline.from_pipe(pipeline)
-                mask_img = pipeline.mask_processor.blur(mask_img, blur_factor)
-                gen_kwargs["mask_image"] = mask_img
+        pipeline = self.pipelines.get_pipeline(model, None if vae == DEFAULT_VAE_NAME else vae, scheduler)
+        try:
+            if lora_url:
+                utils.process_lora(lora_url, pipeline)
+            if image:
+                gen_kwargs["image"] = utils.scale_and_crop(image, width, height)
+                gen_kwargs["strength"] = strength
+                if mask:
+                    # inpainting
+                    mask_img = utils.scale_and_crop(mask, width, height)
+                    pipeline = StableDiffusionXLInpaintPipeline.from_pipe(pipeline)
+                    mask_img = pipeline.mask_processor.blur(mask_img, blur_factor)
+                    gen_kwargs["mask_image"] = mask_img
+                    gen_kwargs["width"] = width
+                    gen_kwargs["height"] = height
+                    print("Using inpainting mode.")
+                else:
+                    # img2img
+                    pipeline = StableDiffusionXLImg2ImgPipeline.from_pipe(pipeline)
+                    print("Using image to image mode.")
+            else:
+                if mask:
+                    raise ValueError("You must upload a base image for inpainting mode.")
+                # txt2img
                 gen_kwargs["width"] = width
                 gen_kwargs["height"] = height
-                print("Using inpainting mode.")
-            else:
-                # img2img
-                pipeline = StableDiffusionXLImg2ImgPipeline.from_pipe(pipeline)
-                print("Using image to image mode.")
-        else:
-            if mask:
-                raise ValueError("You must upload a base image for inpainting mode.")
-            # txt2img
-            gen_kwargs["width"] = width
-            gen_kwargs["height"] = height
-            print("Using text to image mode.")
-        if seed == -1:
-            seed = random.randint(0, 2147483647)
-        gen_kwargs["generator"] = torch.Generator(device="cuda").manual_seed(seed)
-        print("Using seed:", seed)
-        imgs = pipeline(**gen_kwargs).images
+                print("Using text to image mode.")
+            if seed == -1:
+                seed = random.randint(0, 2147483647)
+            gen_kwargs["generator"] = torch.Generator(device="cuda").manual_seed(seed)
+            print("Using seed:", seed)
+            imgs = pipeline(**gen_kwargs).images
 
-        image_paths = []
-        for index, img in enumerate(imgs):
-            img_file_path = f"tmp/{index}.png"
-            img.save(img_file_path, compression=9)
-            image_paths.append(Path(img_file_path))
-
-        return image_paths
+            image_paths = []
+            for index, img in enumerate(imgs):
+                img_file_path = f"tmp/{index}.png"
+                img.save(img_file_path, compression=9)
+                image_paths.append(Path(img_file_path))
+            return image_paths
+        finally:
+            pipeline.unload_lora_weights()
 
 class SDXLMultiPipelineSwitchAutoDetect:
 
-    def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths):
+    def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths, torch_dtype):
         self.model_name_obj_dict = model_name_obj_dict
         self.model_pipeline_dict = {} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance.
         self.vaes_dir_path = vaes_dir_path
         self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance.
         self.textual_inversion_paths = textual_inversion_paths
+        self.torch_dtype = torch_dtype
 
         self._load_all_vaes() # Must load VAEs before models.
         self._load_all_models()
 
-        self.on_cuda_model = model_names[0]
-        on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
-        on_cuda_pipeline.to("cuda")
-        on_cuda_pipeline.vae = self.vae_obj_dict[vae_names[0]]
+        self.on_cuda_model = None
 
     def get_pipeline(self, model_name, vae_name, scheduler_name):
         # __init__ function guarantees all models and VAEs to be loaded.
@@ -115,18 +115,19 @@ class SDXLMultiPipelineSwitchAutoDetect:
         if pipeline is None:
             raise ValueError(f"Model \"{model_name}\" not found.")
 
-        vae_name = model_name if vae_name == DEFAULT_VAE_NAME else vae_name
+        vae_name = model_name if vae_name is None else vae_name
         vae = self.vae_obj_dict.get(vae_name)
         if vae is None:
             raise ValueError(f"VAE \"{vae_name}\" not found.")
 
         if model_name != self.on_cuda_model:
-            prev_on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
-            prev_on_cuda_pipeline.vae = None
-            prev_on_cuda_pipeline.to("cpu")
-            pipeline.to("cuda")
+            if self.on_cuda_model is not None:
+                prev_on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
+                prev_on_cuda_pipeline.vae = None
+                prev_on_cuda_pipeline.to("cpu")
             self.on_cuda_model = model_name
 
+        pipeline.to("cuda")
         pipeline.vae = vae
         pipeline.scheduler = SDXLCompatibleSchedulers.create_instance(scheduler_name)
         return pipeline
@@ -138,7 +139,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     # Load a VAE to GPU(CUDA).
     def _load_vae(self, vae_name):
-        vae = AutoencoderKL.from_pretrained(os.path.join(self.vaes_dir_path, vae_name), torch_dtype=TORCH_DTYPE)
+        vae = AutoencoderKL.from_pretrained(os.path.join(self.vaes_dir_path, vae_name), torch_dtype=self.torch_dtype)
         vae.enable_slicing()
         vae.enable_tiling()
         vae.to("cuda")
@@ -152,7 +153,7 @@ class SDXLMultiPipelineSwitchAutoDetect:
 
     # Load a model to CPU.
     def _load_model(self, model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list):
-        model_loading_kwargs = {"torch_dtype": TORCH_DTYPE, "add_watermarker": False}
+        model_loading_kwargs = {"torch_dtype": self.torch_dtype, "add_watermarker": False}
         if model_for_loading.is_single_file:
             pipeline = StableDiffusionXLPipeline.from_single_file(model_for_loading.model_path, **model_loading_kwargs)
         else:
