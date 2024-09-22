@@ -5,6 +5,11 @@ import torch
 
 TORCH_DTYPE = torch.bfloat16
 
+# When set to True, the script will offload inactive models to CPU, this will add 3 seconds of overhead when switching models.
+# When set to False, the script won't offload inactive models to CPU, all models will be in GPU which means they will use VRAM,
+# but it should make switching models way faster because the script won't need to move the models between RAM and VRAM.
+CPU_OFFLOAD_INACTIVE_MODELS = False
+
 MODELS_DIR_PATH = "models"
 MODELS = finders.find_models(MODELS_DIR_PATH)
 

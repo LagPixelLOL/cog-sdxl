@@ -18,8 +18,8 @@ SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 class Predictor(BasePredictor):
 
     def setup(self):
-        os.environ.update({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE)
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE, CPU_OFFLOAD_INACTIVE_MODELS)
         os.makedirs("tmp", exist_ok=True)
 
     def predict(
@@ -96,18 +96,19 @@ class Predictor(BasePredictor):
 
 class SDXLMultiPipelineSwitchAutoDetect:
 
-    def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths, torch_dtype):
+    def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths, torch_dtype, cpu_offload_inactive_models):
         self.model_name_obj_dict = model_name_obj_dict
         self.model_pipeline_dict = {} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance.
         self.vaes_dir_path = vaes_dir_path
         self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance.
         self.textual_inversion_paths = textual_inversion_paths
         self.torch_dtype = torch_dtype
+        self.cpu_offload_inactive_models = cpu_offload_inactive_models
 
         self._load_all_vaes() # Must load VAEs before models.
         self._load_all_models()
 
-        self.on_cuda_model = None
+        self.activated_model = None
 
     def get_pipeline(self, model_name, vae_name, scheduler_name):
         # __init__ function guarantees all models and VAEs to be loaded.
@@ -120,12 +121,13 @@ class SDXLMultiPipelineSwitchAutoDetect:
         if vae is None:
             raise ValueError(f"VAE \"{vae_name}\" not found.")
 
-        if model_name != self.on_cuda_model:
-            if self.on_cuda_model is not None:
-                prev_on_cuda_pipeline = self.model_pipeline_dict[self.on_cuda_model]
-                prev_on_cuda_pipeline.vae = None
-                prev_on_cuda_pipeline.to("cpu")
-            self.on_cuda_model = model_name
+        if model_name != self.activated_model:
+            if self.activated_model is not None:
+                prev_activated_pipeline = self.model_pipeline_dict[self.activated_model]
+                prev_activated_pipeline.vae = None
+                if self.cpu_offload_inactive_models:
+                    prev_activated_pipeline.to("cpu")
+            self.activated_model = model_name
 
         pipeline.to("cuda")
         pipeline.vae = vae
@@ -145,11 +147,14 @@ class SDXLMultiPipelineSwitchAutoDetect:
         vae.to("cuda")
         return vae
 
-    # Load all models to CPU.
+    # Load all models to CPU when CPU offload, to GPU(CUDA) when not CPU offload.
     def _load_all_models(self):
         clip_l_list, clip_g_list, activation_token_list = utils.get_textual_inversions(self.textual_inversion_paths)
         for model_name, model_for_loading in self.model_name_obj_dict.items():
-            self.model_pipeline_dict[model_name] = self._load_model(model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list)
+            pipeline = self._load_model(model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list)
+            if not self.cpu_offload_inactive_models:
+                pipeline.to("cuda")
+            self.model_pipeline_dict[model_name] = pipeline
 
     # Load a model to CPU.
     def _load_model(self, model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list):
