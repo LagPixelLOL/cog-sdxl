@@ -26,7 +26,15 @@ class Predictor(BasePredictor):
     def predict(
         self,
         model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
-        vae: str = Input(description="The VAE to use", default=DEFAULT_VAE_NAME, choices=[DEFAULT_VAE_NAME] + VAE_NAMES + MODEL_NAMES),
+        vae: str = Input(
+            description="The VAE to use",
+            default=DEFAULT_VAE_NAME,
+            choices=list(dict.fromkeys(
+                (["default"] if DEFAULT_VAE_NAME is None else [DEFAULT_VAE_NAME]) +
+                VAE_NAMES +
+                MODEL_NAMES
+            ))
+        ),
         prompt: str = Input(description="The prompt", default="1girl"),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
         mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
@@ -58,7 +66,7 @@ class Predictor(BasePredictor):
             "prompt": prompt, "negative_prompt": negative_prompt, "num_inference_steps": steps,
             "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale, "num_images_per_prompt": batch_size,
         }
-        pipeline = self.pipelines.get_pipeline(model, None if vae == DEFAULT_VAE_NAME else vae, scheduler)
+        pipeline = self.pipelines.get_pipeline(model, None if vae == model or vae not in VAE_NAMES + MODEL_NAMES else vae, scheduler)
         try:
             self.loras.process(loras, pipeline)
             if image:
