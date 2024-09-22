@@ -5,11 +5,11 @@ from cog import BasePredictor, Input, Path
 import finders # finders.py
 import utils # utils.py
 import os
-import itertools
 import random
 import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
+from loras import SDXLMultiLoRAHandler # loras.py
 
 MODEL_NAMES = list(MODELS)
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
@@ -19,7 +19,8 @@ class Predictor(BasePredictor):
 
     def setup(self):
         os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
-        self.pipelines = SDXLMultiPipelineSwitchAutoDetect(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE, CPU_OFFLOAD_INACTIVE_MODELS)
+        self.pipelines = SDXLMultiPipelineHandler(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE, CPU_OFFLOAD_INACTIVE_MODELS)
+        self.loras = SDXLMultiLoRAHandler()
         os.makedirs("tmp", exist_ok=True)
 
     def predict(
@@ -29,7 +30,12 @@ class Predictor(BasePredictor):
         prompt: str = Input(description="The prompt", default="1girl"),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
         mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
-        lora_url: str = Input(description="The URL to the LoRA (Will download the weights, might take a while if the LoRA is huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)", default=None),
+        loras: str = Input(
+            description="The LoRAs to use, must be either a string with format \"URL:Strength,URL:Strength,...\" (Strength is optional, default to 1), "
+                        "or a JSON list dumped as a string containing key \"url\" (Required), \"strength\" (Optional, default to 1), and \"civitai_token\" (Optional, for downloading from CivitAI) "
+                        "(NOTICE: Will download the weights, might take a while if the LoRAs are huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)",
+            default=None,
+        ),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, big breasts"),
         prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\").", default=True),
         scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
@@ -54,8 +60,7 @@ class Predictor(BasePredictor):
         }
         pipeline = self.pipelines.get_pipeline(model, None if vae == DEFAULT_VAE_NAME else vae, scheduler)
         try:
-            if lora_url:
-                utils.process_lora(lora_url, pipeline)
+            self.loras.process(loras, pipeline)
             if image:
                 gen_kwargs["image"] = utils.scale_and_crop(image, width, height)
                 gen_kwargs["strength"] = strength
@@ -88,13 +93,20 @@ class Predictor(BasePredictor):
             image_paths = []
             for index, img in enumerate(imgs):
                 img_file_path = f"tmp/{index}.png"
-                img.save(img_file_path, compression=9)
+                img.save(img_file_path, optimize=True, compress_level=9)
+                img.close()
                 image_paths.append(Path(img_file_path))
             return image_paths
         finally:
             pipeline.unload_lora_weights()
+            _image = gen_kwargs.get("image")
+            if _image is not None:
+                _image.close()
+            _mask_image = gen_kwargs.get("mask_image")
+            if _mask_image is not None:
+                _mask_image.close()
 
-class SDXLMultiPipelineSwitchAutoDetect:
+class SDXLMultiPipelineHandler:
 
     def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths, torch_dtype, cpu_offload_inactive_models):
         self.model_name_obj_dict = model_name_obj_dict
