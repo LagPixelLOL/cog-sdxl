@@ -1,6 +1,6 @@
 from constants import * # constants.py
 assert len(MODELS) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there!"
-assert DEFAULT_VAE_NAME == DEFAULT_DEFAULT_VAE_NAME or DEFAULT_VAE_NAME in VAE_NAMES, f"You have set a default VAE but it's not found under \"{VAES_DIR_PATH}\"!"
+assert DEFAULT_VAE_NAME == BAKEDIN_VAE_LABEL or DEFAULT_VAE_NAME in VAE_NAMES, f"You have set a default VAE but it's not found under \"{VAES_DIR_PATH}\"!"
 
 from cog import BasePredictor, Input, Path
 import utils # utils.py
@@ -29,7 +29,7 @@ class Predictor(BasePredictor):
         vae: str = Input(
             description="The VAE to use",
             default=DEFAULT_VAE_NAME,
-            choices=list(dict.fromkeys([DEFAULT_VAE_NAME, DEFAULT_DEFAULT_VAE_NAME] + VAE_NAMES + MODEL_NAMES)),
+            choices=list(dict.fromkeys([DEFAULT_VAE_NAME, BAKEDIN_VAE_LABEL] + VAE_NAMES + MODEL_NAMES)),
         ),
         prompt: str = Input(description="The prompt", default="1girl"),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
@@ -62,7 +62,7 @@ class Predictor(BasePredictor):
             "prompt": prompt, "negative_prompt": negative_prompt, "num_inference_steps": steps,
             "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale, "num_images_per_prompt": batch_size,
         }
-        pipeline = self.pipelines.get_pipeline(model, None if vae == DEFAULT_DEFAULT_VAE_NAME else vae, scheduler)
+        pipeline = self.pipelines.get_pipeline(model, None if vae == BAKEDIN_VAE_LABEL else vae, scheduler)
         try:
             self.loras.process(loras, pipeline)
             if image:
