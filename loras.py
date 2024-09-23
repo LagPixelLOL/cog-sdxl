@@ -105,8 +105,7 @@ class SDXLMultiLoRAHandler:
 
     def get_state_dicts(self, loras):
         state_dicts = []
-        for lora in loras:
-            url, strength, civitai_token = lora
+        for url, strength, civitai_token in loras:
             if url not in self.lora_dict:
                 download_url, filename = get_download_info(url, None if civitai_token is None else {"__Secure-civitai-token": civitai_token})
                 _, ext = os.path.splitext(filename)

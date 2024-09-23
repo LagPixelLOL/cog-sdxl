@@ -3,9 +3,7 @@ SINGLE_FILE_MODELS = {model_name: model for model_name, model in MODELS.items() 
 assert len(SINGLE_FILE_MODELS) > 0, f"You don't have any single file model under \"{MODELS_DIR_PATH}\", please put at least 1 single file model in there."
 
 import os
-import shutil
 import argparse
-from typing import Optional
 from diffusers import StableDiffusionXLPipeline
 
 def parse_args():
@@ -13,18 +11,8 @@ def parse_args():
     model_name_required = len(choices) > 1
     parser = argparse.ArgumentParser(description="Extract Stable Diffusion XL sigle file model into HuggingFace Diffusers format.")
     parser.add_argument(
-        "-m",
-        "--model-name",
-        type=str,
-        required=model_name_required,
-        choices=choices,
-        default=choices[0] if not model_name_required else None,
-        help="Name of the model to extract from.",
-    )
-    parser.add_argument(
         "-o",
         "--output-name",
-        type=Optional[str],
         help="Name for the extracted model.",
     )
     parser.add_argument(
@@ -32,6 +20,13 @@ def parse_args():
         "--no-delete",
         action="store_true",
         help="Disable auto deletion of the old model.",
+    )
+    parser.add_argument(
+        "model_name",
+        nargs=None if model_name_required else "?",
+        choices=choices,
+        default=None if model_name_required else choices[0],
+        help="Name of the model to extract from.",
     )
     return parser.parse_args()
 
@@ -46,7 +41,6 @@ def main():
     if not args.no_delete:
         print(f"Deleting the old model \"{model_path}\"...")
         os.remove(model_path)
-    shutil.rmtree("__pycache__", ignore_errors=True)
     print("Finished.")
 
 if __name__ == "__main__":

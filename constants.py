@@ -1,5 +1,4 @@
 import finders # finders.py
-import os
 import requests
 import torch
 

@@ -3,7 +3,6 @@ assert len(MODELS) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", 
 assert DEFAULT_VAE_NAME == DEFAULT_DEFAULT_VAE_NAME or DEFAULT_VAE_NAME in VAE_NAMES, f"You have set a default VAE but it's not found under \"{VAES_DIR_PATH}\"!"
 
 from cog import BasePredictor, Input, Path
-import finders # finders.py
 import utils # utils.py
 import os
 import random
