@@ -41,13 +41,14 @@ class Predictor(BasePredictor):
             default=None,
         ),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, big breasts"),
-        prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\").", default=True),
-        scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
-        steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=50),
         guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=5),
+        clip_skip: int = Input(description="How many CLIP layers to skip", default=0, ge=0),
         width: int = Input(description="The width of the image", default=1184, ge=1, le=4096),
         height: int = Input(description="The height of the image", default=864, ge=1, le=4096),
+        prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\")", default=True),
+        scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
+        steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
         strength: float = Input(description="How much noise to add (For image to image and inpainting only, larger value indicates more noise added to the input image)", default=0.7, ge=0, le=1),
         blur_factor: float = Input(description="The factor to blur the inpainting mask for smoother transition between masked and unmasked", default=5, ge=0),
         batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
@@ -59,8 +60,8 @@ class Predictor(BasePredictor):
             prompt = POSITIVE_PREPROMPT + prompt
             negative_prompt = NEGATIVE_PREPROMPT + negative_prompt
         gen_kwargs = {
-            "prompt": prompt, "negative_prompt": negative_prompt, "num_inference_steps": steps,
-            "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale, "num_images_per_prompt": batch_size,
+            "prompt": prompt, "negative_prompt": negative_prompt, "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale,
+            "clip_skip": clip_skip, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
         }
         pipeline = self.pipelines.get_pipeline(model, None if vae == BAKEDIN_VAE_LABEL else vae, scheduler)
         try:
