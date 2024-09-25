@@ -43,7 +43,7 @@ class Predictor(BasePredictor):
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, big breasts"),
         cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=50),
         guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=5),
-        clip_skip: int = Input(description="How many CLIP layers to skip", default=0, ge=0),
+        clip_skip: int = Input(description="How many CLIP layers to skip, 1 is actually no skip, this is the behavior in A1111 so it's aligned to it", default=1, ge=1),
         width: int = Input(description="The width of the image", default=1184, ge=1, le=4096),
         height: int = Input(description="The height of the image", default=864, ge=1, le=4096),
         prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\")", default=True),
@@ -61,7 +61,7 @@ class Predictor(BasePredictor):
             negative_prompt = NEGATIVE_PREPROMPT + negative_prompt
         gen_kwargs = {
             "prompt": prompt, "negative_prompt": negative_prompt, "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale,
-            "clip_skip": clip_skip, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
+            "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
         }
         pipeline = self.pipelines.get_pipeline(model, None if vae == BAKEDIN_VAE_LABEL else vae, scheduler)
         try:
