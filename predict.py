@@ -1,6 +1,9 @@
 from constants import * # constants.py
+DEFAULT_VAE_NAME = BAKEDIN_VAE_LABEL if DEFAULT_VAE_NAME is None else DEFAULT_VAE_NAME
+
 assert len(MODELS) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there!"
 assert DEFAULT_VAE_NAME == BAKEDIN_VAE_LABEL or DEFAULT_VAE_NAME in VAE_NAMES, f"You have set a default VAE but it's not found under \"{VAES_DIR_PATH}\"!"
+assert DEFAULT_CLIP_SKIP > 0, f"Clip Skip must be at least 1 (which is no skip), this is the behavior in A1111 so it's aligned to it!"
 
 from cog import BasePredictor, Input, Path
 import utils # utils.py
@@ -10,9 +13,6 @@ import torch
 from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
 from loras import SDXLMultiLoRAHandler # loras.py
-
-MODEL_NAMES = list(MODELS)
-SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
 # Cog will only run this class in a single thread.
 class Predictor(BasePredictor):
@@ -25,30 +25,30 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        model: str = Input(description="The model to use", default=MODEL_NAMES[0], choices=MODEL_NAMES),
+        model: str = Input(description="The model to use", default=DEFAULT_MODEL, choices=MODEL_NAMES),
         vae: str = Input(
             description="The VAE to use",
             default=DEFAULT_VAE_NAME,
             choices=list(dict.fromkeys([DEFAULT_VAE_NAME, BAKEDIN_VAE_LABEL] + VAE_NAMES + MODEL_NAMES)),
         ),
-        prompt: str = Input(description="The prompt", default="1girl"),
+        prompt: str = Input(description="The prompt", default=DEFAULT_POSITIVE_PROMPT),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
         mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
         loras: str = Input(
             description="The LoRAs to use, must be either a string with format \"URL:Strength,URL:Strength,...\" (Strength is optional, default to 1), "
                         "or a JSON list dumped as a string containing key \"url\" (Required), \"strength\" (Optional, default to 1), and \"civitai_token\" (Optional, for downloading from CivitAI) "
                         "(NOTICE: Will download the weights, might take a while if the LoRAs are huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)",
-            default=None,
+            default=DEFAULT_LORA,
         ),
-        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default="animal, cat, dog, big breasts"),
-        cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=7, ge=1, le=50),
-        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=0.7, ge=0, le=5),
-        clip_skip: int = Input(description="How many CLIP layers to skip, 1 is actually no skip, this is the behavior in A1111 so it's aligned to it", default=1, ge=1),
-        width: int = Input(description="The width of the image", default=1184, ge=1, le=4096),
-        height: int = Input(description="The height of the image", default=864, ge=1, le=4096),
-        prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{POSITIVE_PREPROMPT}\" Negative prompt: \"{NEGATIVE_PREPROMPT}\")", default=True),
-        scheduler: str = Input(description="The scheduler to use", default=SCHEDULER_NAMES[0], choices=SCHEDULER_NAMES),
-        steps: int = Input(description="The steps when generating", default=35, ge=1, le=100),
+        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default=DEFAULT_NEGATIVE_PROMPT),
+        cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=DEFAULT_CFG, ge=1, le=50),
+        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=DEFAULT_GUIDANCE, ge=0, le=5),
+        clip_skip: int = Input(description="How many CLIP layers to skip, 1 is actually no skip, this is the behavior in A1111 so it's aligned to it", default=DEFAULT_CLIP_SKIP, ge=1),
+        width: int = Input(description="The width of the image", default=DEFAULT_WIDTH, ge=1, le=4096),
+        height: int = Input(description="The height of the image", default=DEFAULT_HEIGHT, ge=1, le=4096),
+        prepend_preprompt: bool = Input(description=f"Prepend preprompt (Prompt: \"{DEFAULT_POS_PREPROMPT}\" Negative prompt: \"{DEFAULT_NEG_PREPROMPT}\")", default=True),
+        scheduler: str = Input(description="The scheduler to use", default=DEFAULT_SCHEDULER, choices=SCHEDULER_NAMES),
+        steps: int = Input(description="The steps when generating", default=DEFAULT_STEPS, ge=1, le=100),
         strength: float = Input(description="How much noise to add (For image to image and inpainting only, larger value indicates more noise added to the input image)", default=0.7, ge=0, le=1),
         blur_factor: float = Input(description="The factor to blur the inpainting mask for smoother transition between masked and unmasked", default=5, ge=0),
         batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
@@ -57,8 +57,8 @@ class Predictor(BasePredictor):
         if prompt == "__ignore__":
             return []
         if prepend_preprompt:
-            prompt = POSITIVE_PREPROMPT + prompt
-            negative_prompt = NEGATIVE_PREPROMPT + negative_prompt
+            prompt = DEFAULT_POS_PREPROMPT + prompt
+            negative_prompt = DEFAULT_NEG_PREPROMPT + negative_prompt
         gen_kwargs = {
             "prompt": prompt, "negative_prompt": negative_prompt, "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale,
             "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
