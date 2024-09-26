@@ -26,7 +26,6 @@ TEXTUAL_INVERSION_PATHS = finders.find_textual_inversions("textual_inversions")
 
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
-
 DEFAULT_MODEL = MODEL_NAMES[0]
 
 DEFAULT_VAE_NAME = None
@@ -37,17 +36,17 @@ DEFAULT_LORA = None
 DEFAULT_POS_PREPROMPT = "score_9, score_8_up, score_7_up, "
 DEFAULT_NEG_PREPROMPT = "score_4, score_3, score_2, score_1, worst quality, bad hands, bad feet, "
 
-DEFAULT_POSITIVE_PROMPT = "safe"
-DEFAULT_NEGATIVE_PROMPT = ""
-
-DEFAULT_HEIGHT = 1024
-DEFAULT_WIDTH = 1024
-
-DEFAULT_STEPS = 35
-DEFAULT_SCHEDULER = SCHEDULER_NAMES[0]
+DEFAULT_POSITIVE_PROMPT = "1girl"
+DEFAULT_NEGATIVE_PROMPT = "animal, cat, dog, big breasts"
 
 DEFAULT_CFG = 7
 DEFAULT_GUIDANCE = 0.7
 
-# Clip Skip is calculated in the same way AUTOMATIC1111 or CivitAI
+# Clip Skip is calculated in the same way AUTOMATIC1111 or CivitAI.
 DEFAULT_CLIP_SKIP = 1
+
+DEFAULT_WIDTH = 1184
+DEFAULT_HEIGHT = 864
+
+DEFAULT_SCHEDULER = SCHEDULER_NAMES[0]
+DEFAULT_STEPS = 35

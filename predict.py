@@ -3,7 +3,7 @@ DEFAULT_VAE_NAME = BAKEDIN_VAE_LABEL if DEFAULT_VAE_NAME is None else DEFAULT_VA
 
 assert len(MODELS) > 0, f"You don't have any model under \"{MODELS_DIR_PATH}\", please put at least 1 model in there!"
 assert DEFAULT_VAE_NAME == BAKEDIN_VAE_LABEL or DEFAULT_VAE_NAME in VAE_NAMES, f"You have set a default VAE but it's not found under \"{VAES_DIR_PATH}\"!"
-assert DEFAULT_CLIP_SKIP > 0, f"Clip Skip must be at least 1 (which is no skip), this is the behavior in A1111 so it's aligned to it!"
+assert DEFAULT_CLIP_SKIP >= 1, f"CLIP skip must be at least 1 (which is no skip), this is the behavior in A1111 so it's aligned to it!"
 
 from cog import BasePredictor, Input, Path
 import utils # utils.py
