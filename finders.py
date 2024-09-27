@@ -1,6 +1,6 @@
 import os
 import glob
-from model_for_loading import ModelForLoading
+from model_for_loading import ModelForLoading # model_for_loading.py
 
 # Returns dict {Key: Model name, Value: ModelForLoading object}.
 def find_models(models_dir):

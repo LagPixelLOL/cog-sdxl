@@ -1,9 +1,7 @@
 import os
-import cgi
 import json
+import utils # utils.py
 import torch
-import urllib
-import subprocess
 import safetensors
 from constants import * # constants.py
 
@@ -68,27 +66,6 @@ def parse(text):
         raise e.__class__("The LoRA JSON is invalid! Error: " + str(e)) from e
     return _parse_plain(text)
 
-def get_download_info(url, cookies=None):
-    with REQUESTS_GLOBAL_SESSION.get(url, cookies=cookies, timeout=5, stream=True) as response:
-        if response.status_code >= 200 and response.status_code < 300:
-            content_disposition = response.headers.get("Content-Disposition")
-            if content_disposition:
-                value, params = cgi.parse_header(content_disposition)
-                if "filename*" in params:
-                    encoding, _, filename = params["filename*"].split("'", 2)
-                    return response.url, urllib.parse.unquote(filename, encoding=encoding)
-                elif "filename" in params:
-                    return response.url, urllib.parse.unquote(params["filename"])
-            content_type = response.headers.get("Content-Type")
-            if content_type == "binary/octet-stream":
-                parsed_url = urllib.parse.urlparse(url)
-                filename = parsed_url.path.rsplit("/", 1)[-1]
-                if filename:
-                    return response.url, urllib.parse.unquote(filename)
-        else:
-            raise RuntimeError("URL responded with status code: " + str(response.status_code))
-    raise RuntimeError("URL not downloadable.")
-
 class SDXLMultiLoRAHandler:
 
     def __init__(self):
@@ -107,15 +84,13 @@ class SDXLMultiLoRAHandler:
         state_dicts = []
         for url, strength, civitai_token in loras:
             if url not in self.lora_dict:
-                download_url, filename = get_download_info(url, None if civitai_token is None else {"__Secure-civitai-token": civitai_token})
+                download_url, filename = utils.get_download_info(url, None if civitai_token is None else {"__Secure-civitai-token": civitai_token})
                 _, ext = os.path.splitext(filename)
                 if ext not in {".safetensors", ".bin"}:
-                    raise RuntimeError(f"URL file extension \"{ext}\" isn't supported!")
+                    raise RuntimeError(f"URL file extension \"{ext}\" isn't supported for LoRA!")
                 lora_path = os.path.join(LORAS_DIR_PATH, filename)
                 if not os.path.isfile(lora_path):
-                    return_code = subprocess.run(["pget", "-m", "10M", download_url, lora_path]).returncode
-                    if return_code != 0:
-                        raise RuntimeError(f"Failed to download \"{filename}\", return code: {return_code}")
+                    utils.download(download_url, lora_path)
                 self.lora_dict[url] = filename
                 self.lora_dict[download_url] = filename
             else:

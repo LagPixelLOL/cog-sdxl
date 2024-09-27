@@ -1,7 +1,11 @@
 import os
+import cgi
 import torch
+import urllib
+import subprocess
 import safetensors
 from PIL import Image
+from constants import * # constants.py
 
 def scale_and_crop(image_path, width, height):
     img = Image.open(image_path)
@@ -26,6 +30,32 @@ def scale_and_crop(image_path, width, height):
     bottom = top + height
 
     return img_resized.crop((left, top, right, bottom))
+
+def get_download_info(url, cookies=None):
+    with REQUESTS_GLOBAL_SESSION.get(url, cookies=cookies, timeout=5, stream=True) as response:
+        if response.status_code >= 200 and response.status_code < 300:
+            content_disposition = response.headers.get("Content-Disposition")
+            if content_disposition:
+                value, params = cgi.parse_header(content_disposition)
+                if "filename*" in params:
+                    encoding, _, filename = params["filename*"].split("'", 2)
+                    return response.url, urllib.parse.unquote(filename, encoding=encoding)
+                elif "filename" in params:
+                    return response.url, urllib.parse.unquote(params["filename"])
+            content_type = response.headers.get("Content-Type")
+            if content_type == "binary/octet-stream":
+                parsed_url = urllib.parse.urlparse(url)
+                filename = parsed_url.path.rsplit("/", 1)[-1]
+                if filename:
+                    return response.url, urllib.parse.unquote(filename)
+        else:
+            raise RuntimeError("URL responded with status code: " + str(response.status_code))
+    raise RuntimeError("URL not downloadable.")
+
+def download(url, destination):
+    return_code = subprocess.run(["pget", "-m", "10M", "-c", "320", url, destination]).returncode
+    if return_code != 0:
+        raise RuntimeError(f"Failed to download \"{filename}\", return code: {return_code}")
 
 def apply_textual_inversions_to_sdxl_pipeline(sdxl_pipeline, clip_l_list, clip_g_list, activation_token_list):
     if clip_l_list and clip_g_list and activation_token_list:

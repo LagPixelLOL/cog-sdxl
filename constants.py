@@ -1,4 +1,3 @@
-import finders # finders.py
 import requests
 import torch
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
@@ -12,6 +11,8 @@ REQUESTS_GLOBAL_SESSION = requests.Session()
 CPU_OFFLOAD_INACTIVE_MODELS = False
 
 MODELS_DIR_PATH = "models"
+MODELS_REMOTE_CACHE_PATH = "__models_remote_cache__"
+import finders # finders.py | Need to import finders here because MODELS_REMOTE_CACHE_PATH must be set before model_for_loading.py imports constants.py (This script).
 MODELS = finders.find_models(MODELS_DIR_PATH)
 MODEL_NAMES = list(MODELS)
 

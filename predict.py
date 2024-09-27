@@ -10,7 +10,7 @@ import utils # utils.py
 import os
 import random
 import torch
-from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
+from diffusers import StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
 from loras import SDXLMultiLoRAHandler # loras.py
 
@@ -175,11 +175,7 @@ class SDXLMultiPipelineHandler:
 
     # Load a model to CPU.
     def _load_model(self, model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list):
-        model_loading_kwargs = {"torch_dtype": self.torch_dtype, "add_watermarker": False}
-        if model_for_loading.is_single_file:
-            pipeline = StableDiffusionXLPipeline.from_single_file(model_for_loading.model_path, **model_loading_kwargs)
-        else:
-            pipeline = StableDiffusionXLPipeline.from_pretrained(model_for_loading.model_path, **model_loading_kwargs)
+        pipeline = model_for_loading.load(torch_dtype=self.torch_dtype, add_watermarker=False)
         utils.apply_textual_inversions_to_sdxl_pipeline(pipeline, clip_l_list, clip_g_list, activation_token_list)
         vae = pipeline.vae
         pipeline.vae = None
