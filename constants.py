@@ -40,10 +40,11 @@ DEFAULT_NEG_PREPROMPT = "score_4, score_3, score_2, score_1, worst quality, bad 
 DEFAULT_POSITIVE_PROMPT = "1girl"
 DEFAULT_NEGATIVE_PROMPT = "animal, cat, dog, big breasts"
 
-DEFAULT_CFG = 7
-DEFAULT_GUIDANCE = 0.7
+DEFAULT_CFG = 5
+DEFAULT_RESCALE = 0.5
+DEFAULT_PAG = 3
 
-# Clip Skip is calculated in the same way AUTOMATIC1111 or CivitAI.
+# CLIP skip is calculated in the same way as AUTOMATIC1111 and CivitAI.
 DEFAULT_CLIP_SKIP = 1
 
 DEFAULT_WIDTH = 1184

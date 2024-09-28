@@ -10,7 +10,7 @@ import utils # utils.py
 import os
 import random
 import torch
-from diffusers import StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL
+from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting, AutoencoderKL
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
 from loras import SDXLMultiLoRAHandler # loras.py
 
@@ -41,8 +41,9 @@ class Predictor(BasePredictor):
             default=DEFAULT_LORA,
         ),
         negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default=DEFAULT_NEGATIVE_PROMPT),
-        cfg_scale: float = Input(description="CFG Scale defines how much attention the model pays to the prompt when generating", default=DEFAULT_CFG, ge=1, le=50),
-        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images", default=DEFAULT_GUIDANCE, ge=0, le=5),
+        cfg_scale: float = Input(description="CFG scale defines how much attention the model pays to the prompt when generating, set to 1 to disable", default=DEFAULT_CFG, ge=1, le=50),
+        guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images, set to 0 or 1 to disable", default=DEFAULT_RESCALE, ge=0, le=5),
+        pag_scale: float = Input(description="PAG scale is similar to CFG but it literally makes the result better, it's compatible with CFG too, set to 0 to disable", default=DEFAULT_PAG, ge=0, le=50),
         clip_skip: int = Input(description="How many CLIP layers to skip, 1 is actually no skip, this is the behavior in A1111 so it's aligned to it", default=DEFAULT_CLIP_SKIP, ge=1),
         width: int = Input(description="The width of the image", default=DEFAULT_WIDTH, ge=1, le=4096),
         height: int = Input(description="The height of the image", default=DEFAULT_HEIGHT, ge=1, le=4096),
@@ -51,7 +52,7 @@ class Predictor(BasePredictor):
         steps: int = Input(description="The steps when generating", default=DEFAULT_STEPS, ge=1, le=100),
         strength: float = Input(description="How much noise to add (For image to image and inpainting only, larger value indicates more noise added to the input image)", default=0.7, ge=0, le=1),
         blur_factor: float = Input(description="The factor to blur the inpainting mask for smoother transition between masked and unmasked", default=5, ge=0),
-        batch_size: int = Input(description="Number of images to generate (1-4)", default=1, ge=1, le=4),
+        batch_size: int = Input(description="Number of images to generate (1-4), note if you set this to 4, some high resolution gens might fail because of not enough VRAM", default=1, ge=1, le=4),
         seed: int = Input(description="The seed used when generating, set to -1 for random seed", default=-1),
     ) -> list[Path]:
         if prompt == "__ignore__":
@@ -61,7 +62,7 @@ class Predictor(BasePredictor):
             negative_prompt = DEFAULT_NEG_PREPROMPT + negative_prompt
         gen_kwargs = {
             "prompt": prompt, "negative_prompt": negative_prompt, "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale,
-            "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
+            "pag_scale": pag_scale, "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
         }
         pipeline = self.pipelines.get_pipeline(model, None if vae == BAKEDIN_VAE_LABEL else vae, scheduler)
         try:
@@ -72,7 +73,7 @@ class Predictor(BasePredictor):
                 if mask:
                     # inpainting
                     mask_img = utils.scale_and_crop(mask, width, height)
-                    pipeline = StableDiffusionXLInpaintPipeline.from_pipe(pipeline)
+                    pipeline = AutoPipelineForInpainting.from_pipe(pipeline)
                     mask_img = pipeline.mask_processor.blur(mask_img, blur_factor)
                     gen_kwargs["mask_image"] = mask_img
                     gen_kwargs["width"] = width
@@ -80,7 +81,7 @@ class Predictor(BasePredictor):
                     print("Using inpainting mode.")
                 else:
                     # img2img
-                    pipeline = StableDiffusionXLImg2ImgPipeline.from_pipe(pipeline)
+                    pipeline = AutoPipelineForImage2Image.from_pipe(pipeline)
                     print("Using image to image mode.")
             else:
                 if mask:
@@ -115,7 +116,7 @@ class SDXLMultiPipelineHandler:
 
     def __init__(self, model_name_obj_dict, vaes_dir_path, vae_names, textual_inversion_paths, torch_dtype, cpu_offload_inactive_models):
         self.model_name_obj_dict = model_name_obj_dict
-        self.model_pipeline_dict = {} # Key = Model's name(str), Value = StableDiffusionXLPipeline instance.
+        self.model_pipeline_dict = {} # Key = Model's name(str), Value = StableDiffusionXLPAGPipeline instance.
         self.vaes_dir_path = vaes_dir_path
         self.vae_obj_dict = {vae_name: None for vae_name in vae_names} # Key = VAE's name(str), Value = AutoencoderKL instance.
         self.textual_inversion_paths = textual_inversion_paths
@@ -175,7 +176,7 @@ class SDXLMultiPipelineHandler:
 
     # Load a model to CPU.
     def _load_model(self, model_name, model_for_loading, clip_l_list, clip_g_list, activation_token_list):
-        pipeline = model_for_loading.load(torch_dtype=self.torch_dtype, add_watermarker=False)
+        pipeline = AutoPipelineForText2Image.from_pipe(model_for_loading.load(torch_dtype=self.torch_dtype, add_watermarker=False), enable_pag=True)
         utils.apply_textual_inversions_to_sdxl_pipeline(pipeline, clip_l_list, clip_g_list, activation_token_list)
         vae = pipeline.vae
         pipeline.vae = None
