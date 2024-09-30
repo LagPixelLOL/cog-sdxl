@@ -100,17 +100,10 @@ class Predictor(BasePredictor):
             for index, img in enumerate(imgs):
                 img_file_path = f"tmp/{index}.png"
                 img.save(img_file_path, optimize=True, compress_level=9)
-                img.close()
                 image_paths.append(Path(img_file_path))
             return image_paths
         finally:
             pipeline.unload_lora_weights()
-            _image = gen_kwargs.get("image")
-            if _image is not None:
-                _image.close()
-            _mask_image = gen_kwargs.get("mask_image")
-            if _mask_image is not None:
-                _mask_image.close()
 
 class SDXLMultiPipelineHandler:
 

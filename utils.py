@@ -7,8 +7,18 @@ import safetensors
 from PIL import Image
 from constants import * # constants.py
 
+def convert_to_rgb(image):
+    # `image.convert("RGB")` would only work for .jpg images, as it creates a wrong
+    # background for transparent images. The call to `alpha_composite` handles this case.
+    image_rgba = image.convert("RGBA")
+    background = Image.new("RGBA", image_rgba.size, (255, 255, 255))
+    alpha_composite = Image.alpha_composite(background, image_rgba)
+    alpha_composite = alpha_composite.convert("RGB")
+    return alpha_composite
+
 def scale_and_crop(image_path, width, height):
-    img = Image.open(image_path)
+    with Image.open(image_path) as img:
+        img = convert_to_rgb(img)
 
     img_ratio = img.width / img.height
     target_ratio = width / height
