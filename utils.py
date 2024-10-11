@@ -32,7 +32,7 @@ def scale_and_crop(image_path, width, height):
         new_width = width
         new_height = int(img.height * scale_factor)
 
-    img_resized = img.resize((new_width, new_height))
+    img_resized = img.resize((new_width, new_height), Image.LANCZOS)
 
     left = (new_width - width) // 2
     top = (new_height - height) // 2
