@@ -32,9 +32,9 @@ class ModelForLoading:
                 raise NotImplementedError("Loading remote multi file weights (HuggingFace Diffusers format) isn't implemented!")
         else:
             if self.is_single_file:
-                return diffusers.StableDiffusionXLPipeline.from_single_file(model_for_loading.model_path, **model_loading_kwargs)
+                return diffusers.StableDiffusionXLPipeline.from_single_file(self.model_uri, **model_loading_kwargs)
             else:
-                return diffusers.StableDiffusionXLPipeline.from_pretrained(model_for_loading.model_path, **model_loading_kwargs)
+                return diffusers.StableDiffusionXLPipeline.from_pretrained(self.model_uri, **model_loading_kwargs)
 
     def download(self):
         download_url, filename = utils.get_download_info(self.model_uri)

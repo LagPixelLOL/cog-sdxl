@@ -33,7 +33,7 @@ def parse_args():
 def main():
     args = parse_args()
     model = SINGLE_FILE_MODELS[args.model_name]
-    model_path = model.model_path
+    model_path = model.model_uri
     print(f"Loading single file local model from \"{model_path}\"...")
     pipeline = model.load(torch_dtype=TORCH_DTYPE, add_watermarker=False)
     out_model_path = os.path.join(MODELS_DIR_PATH, args.output_name if args.output_name else args.model_name)
