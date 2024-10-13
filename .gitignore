@@ -1,5 +1,6 @@
 .cog/
 models/
+__models_remote_cache__/
 loras/
 vaes/
 textual_inversions/

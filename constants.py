@@ -27,7 +27,7 @@ TEXTUAL_INVERSION_PATHS = finders.find_textual_inversions("textual_inversions")
 
 SCHEDULER_NAMES = SDXLCompatibleSchedulers.get_names()
 
-DEFAULT_MODEL = MODEL_NAMES[0]
+DEFAULT_MODEL = MODEL_NAMES[0] if len(MODEL_NAMES) else None
 
 DEFAULT_VAE_NAME = None
 BAKEDIN_VAE_LABEL = "default"
