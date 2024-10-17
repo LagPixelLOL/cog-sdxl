@@ -14,14 +14,14 @@ build:
 
   # a list of packages in the format <package-name>==<version>
   python_packages:
-    - torch==2.4.1
-    - torchvision==0.19.1
-    - torchaudio==2.4.1
+    - torch==2.5.0
+    - torchvision==0.20.0
+    - torchaudio==2.5.0
 
   # commands run after the environment is setup
   run:
     - "pip3 install -U scipy && pip3 cache purge"
-    - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers diffusers peft torchsde && pip3 cache purge"
+    - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers git+https://github.com/huggingface/diffusers peft torchsde && pip3 cache purge"
     - "python3 -c 'from huggingface_hub import hf_hub_download as d;d(repo_id=\"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"scheduler_config.json\", subfolder=\"scheduler\")'"
     - "apt-get clean && curl -o /usr/local/bin/pget -L \"https://github.com/replicate/pget/releases/latest/download/pget_$(uname -s)_$(uname -m)\" && chmod +x /usr/local/bin/pget"
 
