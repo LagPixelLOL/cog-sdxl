@@ -23,6 +23,11 @@ build:
     - "pip3 install -U scipy && pip3 cache purge"
     - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers git+https://github.com/huggingface/diffusers peft torchsde && pip3 cache purge"
     - "python3 -c 'from huggingface_hub import hf_hub_download as d;d(repo_id=\"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"scheduler_config.json\", subfolder=\"scheduler\")'"
+<<<<<<< Updated upstream
+=======
+    - "HF_HUB_ENABLE_HF_TRANSFER=1 python3 -c 'from huggingface_hub import hf_hub_download as d;d(\"ByteDance/SDXL-Lightning\", \"sdxl_lightning_8step_lora.safetensors\")'"
+    - "HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download John6666/prefect-pony-xl-v3-sdxl --local-dir /src/models/prefect_pony_xl_v3"
+>>>>>>> Stashed changes
     - "apt-get clean && curl -o /usr/local/bin/pget -L \"https://github.com/replicate/pget/releases/latest/download/pget_$(uname -s)_$(uname -m)\" && chmod +x /usr/local/bin/pget"
 
 # predict.py defines how predictions are run on your model
