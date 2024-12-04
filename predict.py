@@ -1,3 +1,6 @@
+import os
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+
 from constants import * # constants.py
 DEFAULT_VAE_NAME = BAKEDIN_VAE_LABEL if DEFAULT_VAE_NAME is None else DEFAULT_VAE_NAME
 
@@ -7,7 +10,6 @@ assert DEFAULT_CLIP_SKIP >= 1, f"CLIP skip must be at least 1 (which is no skip)
 
 from cog import BasePredictor, Input, Path
 import utils # utils.py
-import os
 import random
 import torch
 from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting, AutoencoderKL
@@ -18,7 +20,6 @@ from loras import SDXLMultiLoRAHandler # loras.py
 class Predictor(BasePredictor):
 
     def setup(self):
-        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
         self.pipelines = SDXLMultiPipelineHandler(MODELS, VAES_DIR_PATH, VAE_NAMES, TEXTUAL_INVERSION_PATHS, TORCH_DTYPE, CPU_OFFLOAD_INACTIVE_MODELS)
         self.loras = SDXLMultiLoRAHandler()
         os.makedirs("tmp", exist_ok=True)

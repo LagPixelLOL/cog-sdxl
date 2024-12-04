@@ -22,7 +22,6 @@ build:
   run:
     - "pip3 install -U scipy && pip3 cache purge"
     - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers diffusers peft torchsde && pip3 cache purge"
-    - "python3 -c 'from huggingface_hub import hf_hub_download as d;d(repo_id=\"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"scheduler_config.json\", subfolder=\"scheduler\")'"
     - "apt-get clean && curl -o /usr/local/bin/pget -L \"https://github.com/replicate/pget/releases/latest/download/pget_$(uname -s)_$(uname -m)\" && chmod +x /usr/local/bin/pget"
 
 # predict.py defines how predictions are run on your model
