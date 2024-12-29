@@ -21,7 +21,7 @@ VAE_NAMES = finders.find_vaes(VAES_DIR_PATH)
 VAE_NAMES.sort()
 
 LORAS_DIR_PATH = "loras"
-MAX_LORA_CACHE_BYTES = 137438953472 # 128 GB.
+MAX_LORA_CACHE_BYTES = 34359738368 # 32 GB.
 
 TEXTUAL_INVERSION_PATHS = finders.find_textual_inversions("textual_inversions")
 

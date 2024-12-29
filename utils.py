@@ -41,8 +41,8 @@ def scale_and_crop(image_path, width, height):
 
     return img_resized.crop((left, top, right, bottom))
 
-def get_download_info(url, cookies=None):
-    with REQUESTS_GLOBAL_SESSION.get(url, cookies=cookies, timeout=5, stream=True) as response:
+def get_download_info(url, headers=None):
+    with REQUESTS_GLOBAL_SESSION.get(url, headers=headers, timeout=5, stream=True) as response:
         if response.status_code >= 200 and response.status_code < 300:
             content_disposition = response.headers.get("Content-Disposition")
             if content_disposition:

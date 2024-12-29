@@ -84,7 +84,7 @@ class SDXLMultiLoRAHandler:
         state_dicts = []
         for url, strength, civitai_token in loras:
             if url not in self.lora_dict:
-                download_url, filename = utils.get_download_info(url, None if civitai_token is None else {"__Secure-civitai-token": civitai_token})
+                download_url, filename = utils.get_download_info(url, None if civitai_token is None else {"Authorization": f"Bearer {civitai_token}"})
                 _, ext = os.path.splitext(filename)
                 if ext not in {".safetensors", ".bin"}:
                     raise RuntimeError(f"URL file extension \"{ext}\" isn't supported for LoRA!")
