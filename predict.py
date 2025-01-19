@@ -32,7 +32,7 @@ class Predictor(BasePredictor):
             default=DEFAULT_VAE_NAME,
             choices=list(dict.fromkeys([DEFAULT_VAE_NAME, BAKEDIN_VAE_LABEL] + VAE_NAMES + MODEL_NAMES)),
         ),
-        prompt: str = Input(description="The prompt", default=DEFAULT_POSITIVE_PROMPT),
+        prompt: str = Input(description="The prompt, uses Compel weighting syntax", default=DEFAULT_POSITIVE_PROMPT),
         image: Path = Input(description="The image for image to image or as the base for inpainting (Will be scaled then cropped to the set width and height)", default=None),
         mask: Path = Input(description="The mask for inpainting, white areas will be modified and black preserved (Will be scaled then cropped to the set width and height)", default=None),
         loras: str = Input(
@@ -41,7 +41,7 @@ class Predictor(BasePredictor):
                         "(NOTICE: Will download the weights, might take a while if the LoRAs are huge or the download is slow, WILL CHARGE WHEN DOWNLOADING)",
             default=DEFAULT_LORA,
         ),
-        negative_prompt: str = Input(description="The negative prompt (For things you don't want)", default=DEFAULT_NEGATIVE_PROMPT),
+        negative_prompt: str = Input(description="The negative prompt (For things you don't want), uses Compel weighting syntax", default=DEFAULT_NEGATIVE_PROMPT),
         cfg_scale: float = Input(description="CFG scale defines how much attention the model pays to the prompt when generating, set to 1 to disable", default=DEFAULT_CFG, ge=1, le=50),
         guidance_rescale: float = Input(description="The amount to rescale CFG generated noise to avoid generating overexposed images, set to 0 or 1 to disable", default=DEFAULT_RESCALE, ge=0, le=5),
         pag_scale: float = Input(description="PAG scale is similar to CFG but it literally makes the result better, it's compatible with CFG too, set to 0 to disable", default=DEFAULT_PAG, ge=0, le=50),
@@ -62,12 +62,13 @@ class Predictor(BasePredictor):
             prompt = DEFAULT_POS_PREPROMPT + prompt
             negative_prompt = DEFAULT_NEG_PREPROMPT + negative_prompt
         gen_kwargs = {
-            "prompt": prompt, "negative_prompt": negative_prompt, "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale,
-            "pag_scale": pag_scale, "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
+            "guidance_scale": cfg_scale, "guidance_rescale": guidance_rescale, "pag_scale": pag_scale,
+            "clip_skip": clip_skip - 1, "num_inference_steps": steps, "num_images_per_prompt": batch_size,
         }
         pipeline = self.pipelines.get_pipeline(model, None if vae == BAKEDIN_VAE_LABEL else vae, scheduler)
         try:
             self.loras.process(loras, pipeline)
+            gen_kwargs.update(utils.get_prompt_embeds(prompt, negative_prompt, pipeline))
             if image:
                 gen_kwargs["image"] = utils.scale_and_crop(image, width, height)
                 gen_kwargs["strength"] = strength

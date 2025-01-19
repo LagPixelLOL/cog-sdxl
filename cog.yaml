@@ -21,7 +21,7 @@ build:
   # commands run after the environment is setup
   run:
     - "pip3 install -U scipy && pip3 cache purge"
-    - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers diffusers peft torchsde && pip3 cache purge"
+    - "pip3 install -U huggingface_hub[hf_transfer] omegaconf accelerate transformers diffusers peft torchsde compel && pip3 cache purge"
     - "apt-get clean && curl -o /usr/local/bin/pget -L \"https://github.com/replicate/pget/releases/latest/download/pget_$(uname -s)_$(uname -m)\" && chmod +x /usr/local/bin/pget"
 
 # predict.py defines how predictions are run on your model

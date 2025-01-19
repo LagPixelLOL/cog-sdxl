@@ -1,6 +1,7 @@
 import os
 import cgi
 import torch
+import compel
 import urllib
 import subprocess
 import safetensors
@@ -86,3 +87,15 @@ def get_textual_inversions(textual_inversion_paths):
         clip_g_list.append(state_dict['clip_g'])
         activation_token_list.append(filename)
     return (clip_l_list, clip_g_list, activation_token_list)
+
+def get_prompt_embeds(prompt, negative_prompt, pipeline):
+    compel_processor = compel.Compel(
+        tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2],
+        text_encoder=[pipeline.text_encoder, pipeline.text_encoder_2],
+        returned_embeddings_type=compel.ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+        requires_pooled=[False, True],
+        textual_inversion_manager=compel.DiffusersTextualInversionManager(pipeline),
+    )
+    prompt_embeds, pooled_prompt_embeds = compel_processor(prompt)
+    negative_prompt_embeds, negative_pooled_prompt_embeds = compel_processor(negative_prompt)
+    return {"prompt_embeds": prompt_embeds, "pooled_prompt_embeds": pooled_prompt_embeds, "negative_prompt_embeds": negative_prompt_embeds, "negative_pooled_prompt_embeds": negative_pooled_prompt_embeds}
