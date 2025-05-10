@@ -12,7 +12,7 @@ CPU_OFFLOAD_INACTIVE_MODELS = False
 
 MODELS_DIR_PATH = "models"
 MODELS_REMOTE_CACHE_PATH = "__models_remote_cache__"
-import finders # finders.py | Need to import finders here because MODELS_REMOTE_CACHE_PATH must be set before model_for_loading.py imports constants.py (This script).
+import finders # finders.py | Need to import finders here because MODELS_REMOTE_CACHE_PATH must be set before model_for_loading.py imports constants.py (this script).
 MODELS = finders.find_models(MODELS_DIR_PATH)
 MODEL_NAMES = list(MODELS)
 
@@ -34,8 +34,8 @@ BAKEDIN_VAE_LABEL = "default"
 
 DEFAULT_LORA = None
 
-DEFAULT_POS_PREPROMPT = "score_9, score_8_up, score_7_up, "
-DEFAULT_NEG_PREPROMPT = "score_4, score_3, score_2, score_1, worst quality, bad hands, bad feet, "
+DEFAULT_POS_PREPROMPT = "masterpiece, best quality, absurdres, "
+DEFAULT_NEG_PREPROMPT = "worst quality, english text, japanese text, twitter username, watermark, (bad feet)1.5, jpeg artifacts, "
 
 DEFAULT_POSITIVE_PROMPT = "1girl"
 DEFAULT_NEGATIVE_PROMPT = "animal, cat, dog, big breasts"
