@@ -17,7 +17,7 @@ from loras import SDXLMultiLoRAHandler # loras.py
 from schedulers import SDXLCompatibleSchedulers # schedulers.py
 from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting, AutoencoderKL
 
-V_PRED_PATTERN = re.compile(r"(?:[^a-z0-9]|^)v[-_. ]?pred(?:[^a-z0-9]|$)", re.IGNORECASE)
+V_PRED_PATTERN = re.compile(r"v[-_. ]?pred", re.IGNORECASE)
 
 # Cog will only run this class in a single thread.
 class Predictor(BasePredictor):
